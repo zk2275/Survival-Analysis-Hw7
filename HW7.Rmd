@@ -42,8 +42,7 @@ Problem 1 in Homework 7 asks to understand the transplant's effect when controll
 
 **Import and clean the data.**
 
-Here I did some data manipulation to get the wait time for each patient. I noticed that the age was centered by 48, therefore I recovered it to it original scale. For age at transplant, for those who received transplantation, I use the original scale of the baseline age plus the wait time divided by 365.25, that is, I assume the wait time was in days; For those who didn't received transplantation, the age at transplant is the same to the baseline age.
-
+To obtain the wait time for every patient, I had to manipulate the data in this case. Upon observing that the age was centered around 48, I restored it to its initial scale. I use the original scale of the baseline age plus the wait time divided by 365.25 to determine the age at transplant for those who received transplantation; for those who did not receive transplantation, the age at transplant is equal to the baseline age.
 
 
 ```{r heart_process}
@@ -84,16 +83,77 @@ Check proportional hazard assumption between the two sex groups in the PBC datas
 
 ### a.Using log{-logS(t,Z)}
 
+The result of the checking of proportional hazard assumption using $\log\{-\log S(t,Z)\}$ is shown in the following plot:
 
+```{r loglog_plot}
+library(ggsurvfit)
+library(survminer)
+pbc_survfit = survfit(Surv(time, status==2)~ sex, data = pbc)
+pbc_survfit_log = survfit(Surv(log(time+1), status==2)~ sex, data = pbc)
+
+splots <- list()
+splots[[1]] <- ggsurvplot(pbc_survfit, data = pbc, risk.table = FALSE, ggtheme = theme_minimal(), conf.int = T)
+splots[[2]] <- ggsurvplot(pbc_survfit_log, data = pbc, fun = "cloglog", risk.table = FALSE, xlab = "log(Time)",ggtheme = theme_minimal(), xlim = c(3.5,10))
+
+splots[[1]]$plot + labs(title = "Product Limit Survival Estimates")
+splots[[2]]$plot + labs(title = "Log of Negative Log of Estimated Survival Function")
+
+```
+
+From the plot above, we can found that the $\log\{-\log S(t,Z)\}$ are not two parallel lines, there exists a cross-over at about time = 1000. That means the hazard ratio between male and female is not proportional.
 
 ### b.Plot the observed and fitted
 
+```{r obs_vs_fit}
+obsfit_plots = list()
+obsfit_plots[[1]] = ggsurvplot(pbc_survfit, data = pbc, risk.table = FALSE, ggtheme = theme_minimal())
+obsfit_plots[[2]] = ggadjustedcurves(coxph(Surv(time, status==2)~ sex, data = pbc), variable = "sex", data = pbc, ggtheme = theme_minimal())
+
+cox_fit_surv_dat = obsfit_plots[[2]]$data
+cox_fit_surv_dat$sex = cox_fit_surv_dat$variable
+
+km_fit_surv_dat  = obsfit_plots[[1]]$plot$data
+  
+
+p <- ggplot(cox_fit_surv_dat, aes(x = time, y = surv, group = sex, color = sex)) + geom_step()
+p + geom_step(data = km_fit_surv_dat, aes(x = time, y = surv, group = sex, color = sex), lty = 2) + labs(title = "Observed vs. Fitted Survival, By Sex", caption = "The dashed line is the Observed survival function") + theme_minimal()
+```
+
+From the plot above, we can see that the fitted survival function of female group is pretty close to the observed survival function. However, the fitted survival function of the male group cross the observed survival function. That means the proportional assumption does not hold.
 
 
 ### c.Including a couple of continuous variables and check the interaction with time
+
+In order to investigate the interaction of the continuous variables with time, I included additional variables `albumin`, `bili`, `ast`, `copper` and `protime` and their interaction with time (in log scale) into the proportional hazard model. I choose those parameter based on the stepwise results from the last homework.
+
+
+```{r time_interaction}
+pbc_interaction_fit = 
+  coxph(Surv(time, status==2)~ 
+          sex + albumin + bili + ast + copper + protime + 
+          log(time):albumin + log(time):bili + log(time):ast + log(time):copper + log(time):protime,
+          data = pbc)
+summary(pbc_interaction_fit)$coefficients|>
+  kable("latex", 
+        digits = 4, 
+        escape = F, 
+        booktabs = T, 
+        caption = "Regresion Coefficients Estimates of the Cox Model with Time Interactions") |>
+  kable_styling(position = "center", 
+                latex_options = "hold_position")
+```
+
+From the regression summary above, we can see that except `ast`, all the selected variable has a significant effect and interaction with time.
 
 
 
 ### d.Plot the Schoenfeld residual of the fitted model with two continuous covariates in problem 2.c.
 
+I plot the Schoenfeld residual of the fitted model with two continuous covariates, `albumin` and `copper`, below.
 
+```{r schoenfeld}
+ggcoxzph(cox.zph(pbc_interaction_fit), var = c("albumin"),df = 2, nsmo = 1000)
+ggcoxzph(cox.zph(pbc_interaction_fit), var = c("bili"),df = 2, nsmo = 1000)
+```
+
+From the above plot and the Schoenfeld individual test p-value, we can see that both the residual plots has a non-zero slope regression line, and the p-value of both tests are less than 0.05, which means both the covariates do not meet the PH assumption.

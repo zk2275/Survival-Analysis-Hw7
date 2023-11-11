@@ -11,3 +11,6 @@ lubridate
 knitr
 kableExtra
 survival
+ggsurvfit
+ggpubr
+survminer
