@@ -23,7 +23,7 @@ opts_chunk$set(echo      = TRUE,
                message   = FALSE,
                warning   = FALSE,
                dpi       = 150,
-               fig.width = 4, 
+               fig.width = 6, 
                fig.asp   = 5/7,
                fig.align = "center")
 # attr.source = '.numberLines'
@@ -92,8 +92,18 @@ pbc_survfit = survfit(Surv(time, status==2)~ sex, data = pbc)
 pbc_survfit_log = survfit(Surv(log(time+1), status==2)~ sex, data = pbc)
 
 splots <- list()
-splots[[1]] <- ggsurvplot(pbc_survfit, data = pbc, risk.table = FALSE, ggtheme = theme_minimal(), conf.int = T)
-splots[[2]] <- ggsurvplot(pbc_survfit_log, data = pbc, fun = "cloglog", risk.table = FALSE, xlab = "log(Time)",ggtheme = theme_minimal(), xlim = c(3.5,10))
+splots[[1]] <- ggsurvplot(pbc_survfit, 
+                          data = pbc,
+                          risk.table = FALSE, 
+                          ggtheme = theme_minimal(), 
+                          conf.int = T)
+splots[[2]] <- ggsurvplot(pbc_survfit_log, 
+                          data = pbc, 
+                          fun = "cloglog", 
+                          risk.table = FALSE, 
+                          xlab = "log(Time)",
+                          ggtheme = theme_minimal(), 
+                          xlim = c(3.5,10))
 
 splots[[1]]$plot + labs(title = "Product Limit Survival Estimates")
 splots[[2]]$plot + labs(title = "Log of Negative Log of Estimated Survival Function")
@@ -106,8 +116,15 @@ From the plot above, we can found that the $\log\{-\log S(t,Z)\}$ are not two pa
 
 ```{r obs_vs_fit}
 obsfit_plots = list()
-obsfit_plots[[1]] = ggsurvplot(pbc_survfit, data = pbc, risk.table = FALSE, ggtheme = theme_minimal())
-obsfit_plots[[2]] = ggadjustedcurves(coxph(Surv(time, status==2)~ sex, data = pbc), variable = "sex", data = pbc, ggtheme = theme_minimal())
+obsfit_plots[[1]] = ggsurvplot(pbc_survfit, 
+                               data = pbc, 
+                               risk.table = FALSE, 
+                               ggtheme = theme_minimal())
+obsfit_plots[[2]] = ggadjustedcurves(coxph(Surv(time, status==2)~ sex, 
+                                           data = pbc), 
+                                     variable = "sex", 
+                                     data = pbc, 
+                                     ggtheme = theme_minimal())
 
 cox_fit_surv_dat = obsfit_plots[[2]]$data
 cox_fit_surv_dat$sex = cox_fit_surv_dat$variable
@@ -115,8 +132,18 @@ cox_fit_surv_dat$sex = cox_fit_surv_dat$variable
 km_fit_surv_dat  = obsfit_plots[[1]]$plot$data
   
 
-p <- ggplot(cox_fit_surv_dat, aes(x = time, y = surv, group = sex, color = sex)) + geom_step()
-p + geom_step(data = km_fit_surv_dat, aes(x = time, y = surv, group = sex, color = sex), lty = 2) + labs(title = "Observed vs. Fitted Survival, By Sex", caption = "The dashed line is the Observed survival function") + theme_minimal()
+p <- ggplot(cox_fit_surv_dat, aes(x = time, 
+                                  y = surv, 
+                                  group = sex, 
+                                  color = sex)) + geom_step()
+p + geom_step(data = km_fit_surv_dat, aes(x = time, 
+                                          y = surv, 
+                                          group = sex, 
+                                          color = sex), 
+              lty = 2) + 
+  labs(title = "Observed vs. Fitted Survival, By Sex", 
+  caption = "The dashed line is the Observed survival function") + 
+  theme_minimal()
 ```
 
 From the plot above, we can see that the fitted survival function of female group is pretty close to the observed survival function. However, the fitted survival function of the male group cross the observed survival function. That means the proportional assumption does not hold.
@@ -130,15 +157,18 @@ In order to investigate the interaction of the continuous variables with time, I
 ```{r time_interaction}
 pbc_interaction_fit = 
   coxph(Surv(time, status==2)~ 
-          sex + albumin + bili + ast + copper + protime + 
-          log(time):albumin + log(time):bili + log(time):ast + log(time):copper + log(time):protime,
+          sex + albumin + bili + ast + 
+          copper + protime + 
+          log(time):albumin + log(time):bili + 
+          log(time):ast + log(time):copper + 
+          log(time):protime,
           data = pbc)
 summary(pbc_interaction_fit)$coefficients|>
   kable("latex", 
         digits = 4, 
         escape = F, 
         booktabs = T, 
-        caption = "Regresion Coefficients Estimates of the Cox Model with Time Interactions") |>
+caption = "Regresion Coefficients Estimates of the Cox Model with Time Interactions") |>
   kable_styling(position = "center", 
                 latex_options = "hold_position")
 ```
@@ -152,8 +182,10 @@ From the regression summary above, we can see that except `ast`, all the selecte
 I plot the Schoenfeld residual of the fitted model with two continuous covariates, `albumin` and `copper`, below.
 
 ```{r schoenfeld}
-ggcoxzph(cox.zph(pbc_interaction_fit), var = c("albumin"),df = 2, nsmo = 1000)
-ggcoxzph(cox.zph(pbc_interaction_fit), var = c("bili"),df = 2, nsmo = 1000)
+ggcoxzph(cox.zph(pbc_interaction_fit),
+         var = c("albumin"),df = 2, nsmo = 1000)
+ggcoxzph(cox.zph(pbc_interaction_fit), 
+         var = c("bili"),df = 2, nsmo = 1000)
 ```
 
 From the above plot and the Schoenfeld individual test p-value, we can see that both the residual plots has a non-zero slope regression line, and the p-value of both tests are less than 0.05, which means both the covariates do not meet the PH assumption.
